@@ -31,6 +31,39 @@ class Valkyrie::Database
     end
   end
 
+  def transfer_table_to(name_from, name_to, db, &cb)
+    raise "Table #{name_to} already exists, unable to proceed with migrations." if db.connection.table_exists?(name_to)
+    db.connection.hash_to_schema(name_to, connection.schema_to_hash(name_from), &cb)
+
+    cb.call(:table, [name_to, connection[name_from].count])
+    columns = connection.schema(name_from).map(&:first)
+    dataset = connection[name_from.to_sym]
+
+    cb.call(:rows)
+    buffer = []
+    count = 0
+
+    dataset.each do |row|
+      buffer << row
+      count  += 1
+
+      if buffer.length > 500
+        cb.call(:row, count)
+        send_rows(db, name_to, columns, buffer)
+        buffer.clear
+        count=0
+      end
+    end
+
+    cb.call(:row, count)
+    send_rows(db, name_to, columns, buffer) if buffer.length > 0
+    cb.call(:end)
+
+    connection.not_transferred(name_from)
+
+    columns
+  end
+
   def transfer_table(name, db, &cb)
     db.connection.hash_to_schema(name, connection.schema_to_hash(name), &cb)
 
@@ -70,6 +103,5 @@ class Valkyrie::Database
   def tables
     @tables ||= connection.tables
   end
-
 end
 
