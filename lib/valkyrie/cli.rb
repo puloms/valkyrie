@@ -6,10 +6,11 @@ class Valkyrie::CLI
   def self.start(*args)
     url1 = args.shift
     url2 = args.shift
-    table_hash = args.shift
+    table_from = args.shift
+    table_to = args.shift
 
     unless url1 && url2
-      puts "valkyrie FROM TO"
+      puts "valkyrie FROM TO *optional(TABLE_FROM TABLE_TO)"
       exit 1
     end
 
@@ -18,7 +19,7 @@ class Valkyrie::CLI
 
     progress = nil
 
-    if table_hash.nil?
+    if table_to.nil? && table_from.nil?
       db1.transfer_to(db2) do |type, data|
         case type
         when :tables      then puts "Transferring #{data} tables:"
@@ -28,8 +29,7 @@ class Valkyrie::CLI
         end
       end
     else
-      table_hash = eval table_hash
-      db1.transfer_table_to(table_hash[:table_from].to_sym, table_hash[:table_to].to_sym, db2) do |type, data|
+      db1.transfer_table_to(table_from.to_sym, table_to.to_sym, db2) do |type, data|
         case type
         when :table       then progress = Valkyrie::ProgressBar.new(data.first, data.last, $stdout)
         when :row         then progress.inc(data)
